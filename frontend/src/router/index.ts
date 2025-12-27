@@ -158,14 +158,24 @@ const routes: RouteRecordRaw[] = [
     path: '/stocks',
     name: 'Stocks',
     component: () => import('@/layouts/BasicLayout.vue'),
+    redirect: '/stocks/list',
     meta: {
-      title: '股票详情',
-      icon: 'TrendCharts',
+      title: '股票管理',
+      icon: 'List',
       requiresAuth: true,
-      hideInMenu: true,
       transition: 'fade'
     },
     children: [
+      {
+        path: 'list',
+        name: 'StockList',
+        component: () => import('@/views/Stocks/StockList.vue'),
+        meta: {
+          title: '股票列表',
+          icon: 'List',
+          requiresAuth: true
+        }
+      },
       {
         path: ':code',
         name: 'StockDetail',
@@ -187,7 +197,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/BasicLayout.vue'),
     meta: {
       title: '任务中心',
-      icon: 'List',
+      icon: 'Operation',
       requiresAuth: true,
       transition: 'slide-up'
     },

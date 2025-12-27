@@ -42,6 +42,14 @@
       <template #title>我的自选股</template>
     </el-menu-item>
 
+    <el-sub-menu index="/stocks">
+      <template #title>
+        <el-icon><List /></el-icon>
+        <span>股票管理</span>
+      </template>
+      <el-menu-item index="/stocks/list">股票列表</el-menu-item>
+    </el-sub-menu>
+
     <el-menu-item index="/paper">
       <el-icon><CreditCard /></el-icon>
       <template #title>模拟交易</template>

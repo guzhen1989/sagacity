@@ -80,6 +80,39 @@ export interface NewsResponse {
   items: NewsItem[]
 }
 
+// 股票列表相关类型定义
+export interface StockInfo {
+  symbol: string       // 主字段：股票代码
+  code?: string        // 兼容字段
+  name: string         // 股票名称
+  market: string       // 市场类型
+  industry?: string    // 行业
+  total_mv?: number    // 总市值（亿元）
+  pe?: number          // 市盈率
+  pb?: number          // 市净率
+  close?: number       // 最新价
+  pct_chg?: number     // 涨跌幅
+}
+
+export interface StockListParams {
+  page: number
+  page_size: number
+  market?: string
+  industry?: string
+  search?: string
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
+export interface StockListResponse {
+  success: boolean
+  data: StockInfo[]
+  total: number
+  page: number
+  page_size: number
+  message: string
+}
+
 export const stocksApi = {
   /**
    * 获取股票行情
@@ -117,6 +150,14 @@ export const stocksApi = {
    */
   async getNews(symbol: string, days = 30, limit = 50, includeAnnouncements = true) {
     return ApiClient.get<NewsResponse>(`/api/stocks/${symbol}/news`, { days, limit, include_announcements: includeAnnouncements })
+  },
+
+  /**
+   * 获取股票列表
+   * @param params 查询参数（分页、筛选条件）
+   */
+  async getStockList(params: StockListParams) {
+    return ApiClient.get<StockListResponse>('/api/stock-data/list', params)
   }
 }
 

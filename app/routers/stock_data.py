@@ -98,8 +98,11 @@ async def get_market_quotes(
 async def get_stock_list(
     market: Optional[str] = Query(None, description="市场筛选"),
     industry: Optional[str] = Query(None, description="行业筛选"),
+    search: Optional[str] = Query(None, description="搜索关键词（代码或名称）"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页大小"),
+    sort_by: Optional[str] = Query(None, description="排序字段，支持 symbol, name, market, industry, total_mv, pe, pb, close, pct_chg 等"),
+    sort_order: Optional[str] = Query(None, description="排序顺序，asc 为升序，desc 为降序，默认为升序"),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -108,6 +111,7 @@ async def get_stock_list(
     Args:
         market: 市场筛选 (可选)
         industry: 行业筛选 (可选)
+        search: 搜索关键词 (可选)
         page: 页码 (从1开始)
         page_size: 每页大小 (1-100)
         
@@ -116,15 +120,15 @@ async def get_stock_list(
     """
     try:
         service = get_stock_data_service()
-        stock_list = await service.get_stock_list(
+        stock_list, total = await service.get_stock_list(
             market=market,
             industry=industry,
+            search=search,
             page=page,
-            page_size=page_size
+            page_size=page_size,
+            sort_by=sort_by,
+            sort_order=sort_order
         )
-        
-        # 计算总数 (简化实现，实际应该单独查询)
-        total = len(stock_list)
         
         return StockListResponse(
             success=True,

@@ -112,10 +112,14 @@ class StockBasicInfoExtended(BaseModel):
 
     # 货币字段
     currency: Optional[CurrencyType] = Field(None, description="交易货币")
-    
+        
+    # 行情字段（从market_quotes获取）
+    close: Optional[float] = Field(None, description="最新价")
+    pct_chg: Optional[float] = Field(None, description="涨跌幅%")
+        
     # 版本控制
     data_version: Optional[int] = Field(None, description="数据版本")
-    
+        
     class Config:
         # 允许额外字段，保持向后兼容
         extra = "allow"

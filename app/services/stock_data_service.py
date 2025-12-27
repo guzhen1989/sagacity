@@ -4,7 +4,7 @@
 """
 import logging
 from datetime import datetime, date
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_mongo_db
@@ -122,18 +122,24 @@ class StockDataService:
         self,
         market: Optional[str] = None,
         industry: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20,
-        source: Optional[str] = None
-    ) -> List[StockBasicInfoExtended]:
+        source: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None
+    ) -> Tuple[List[StockBasicInfoExtended], int]:  # 返回股票列表和总数
         """
         获取股票列表
         Args:
             market: 市场筛选
             industry: 行业筛选
+            search: 搜索关键词（代码或名称）
             page: 页码
             page_size: 每页大小
             source: 数据源（可选），默认使用优先级最高的数据源
+            sort_by: 排序字段（可选），支持 symbol, name, market, industry, total_mv, pe, pb, close, pct_chg 等
+            sort_order: 排序顺序（可选），'asc' 为升序，'desc' 为降序，默认为升序
         Returns:
             List[StockBasicInfoExtended]: 股票列表
         """
@@ -163,27 +169,190 @@ class StockDataService:
                 query["market"] = market
             if industry:
                 query["industry"] = industry
+            
+            # 🔥 添加搜索条件
+            if search:
+                search_conditions = []
+                # 如果是6位数字，按代码精确匹配
+                if search.isdigit() and len(search) == 6:
+                    search_conditions.append({"symbol": search})
+                else:
+                    # 按名称模糊匹配
+                    search_conditions.append({"name": {"$regex": search, "$options": "i"}})
+                    # 如果包含数字，也尝试代码匹配
+                    if any(c.isdigit() for c in search):
+                        search_conditions.append({"symbol": {"$regex": search}})
+                
+                # 将搜索条件添加到查询中
+                if search_conditions:
+                    if len(query) > 1:  # 如果已经有其他条件
+                        query = {"$and": [query, {"$or": search_conditions}]}
+                    else:
+                        query["$or"] = search_conditions
 
-            # 分页查询
+            # 默认排序：按symbol升序
+            sort_field = 'symbol'
+            sort_direction = 1
+            
+            # 验证排序字段是否合法，防止注入攻击
+            # 基础信息字段
+            basic_info_fields = {
+                'symbol': 'symbol',
+                'name': 'name',
+                'market': 'market',
+                'industry': 'industry',
+                'total_mv': 'total_mv',
+                'pe': 'pe',
+                'pb': 'pb',
+            }
+            
+            # 实时行情字段
+            market_quote_fields = {
+                'close': 'close',
+                'pct_chg': 'pct_chg',
+            }
+            
+            # 检查排序字段
+            if sort_by:
+                if sort_by in basic_info_fields:
+                    sort_field = basic_info_fields[sort_by]
+                    sort_direction = -1 if sort_order == 'desc' else 1
+                elif sort_by in market_quote_fields:
+                    # 行情字段将在聚合管道中处理
+                    sort_field = sort_by
+                    sort_direction = -1 if sort_order == 'desc' else 1
+                else:
+                    # 默认按symbol排序
+                    sort_field = 'symbol'
+                    sort_direction = -1 if sort_order == 'desc' else 1
+            else:
+                # 默认排序
+                sort_field = 'symbol'
+                sort_direction = 1
+
             skip = (page - 1) * page_size
-            cursor = db[self.basic_info_collection].find(
-                query,
-                {"_id": 0}
-            ).skip(skip).limit(page_size)
+            
+            if sort_by in market_quote_fields:
+                # 使用聚合管道来处理跨集合的排序
+                pipeline = [
+                    # 匹配基础信息
+                    {"$match": query},
+                    # 左连接行情数据
+                    {
+                        "$lookup": {
+                            "from": self.market_quotes_collection,
+                            "let": {"symbol": "$symbol", "code": "$code"},
+                            "pipeline": [
+                                {
+                                    "$match": {
+                                        "$expr": {
+                                            "$or": [
+                                                {"$eq": ["$symbol", "$$symbol"]},
+                                                {"$eq": ["$code", "$$symbol"]},
+                                                {"$eq": ["$symbol", "$$code"]},
+                                                {"$eq": ["$code", "$$code"]}
+                                            ]
+                                        }
+                                    }
+                                },
+                                # 排除行情集合中的_id字段
+                                {
+                                    "$project": {
+                                        "_id": 0
+                                    }
+                                }
+                            ],
+                            "as": "quote_info"
+                        }
+                    },
+                    # 展开行情数据并安全地提取第一个元素
+                    {
+                        "$addFields": {
+                            "quote": {
+                                "$cond": {
+                                    "if": {"$gt": [{"$size": "$quote_info"}, 0]},
+                                    "then": {"$arrayElemAt": ["$quote_info", 0]},
+                                    "else": None
+                                }
+                            }
+                        }
+                    },
+                    # 安全地添加行情字段到基础信息
+                    {
+                        "$addFields": {
+                            "close": {"$ifNull": ["$quote.close", None]},
+                            "pct_chg": {"$ifNull": ["$quote.pct_chg", None]}
+                        }
+                    },
+                    # 移除临时字段
+                    {
+                        "$unset": ["quote_info", "quote"]
+                    },
+                    # 排序 - 使用动态字段名
+                    {
+                        "$sort": {sort_field: sort_direction}
+                    },
+                    # 跳过记录
+                    {
+                        "$skip": skip
+                    },
+                    # 限制返回数量
+                    {
+                        "$limit": page_size
+                    },
+                    # 明确指定需要的字段，排除所有_id字段
+                    {
+                        "$project": {
+                            "_id": 0
+                        }
+                    }
+                ]
+                
+                # 执行聚合查询
+                cursor = db[self.basic_info_collection].aggregate(pipeline)
+                docs = await cursor.to_list(length=page_size)
+                
+                # 数据标准化处理
+                result = []
+                for doc in docs:
+                    standardized_doc = self._standardize_basic_info(doc)
+                    result.append(StockBasicInfoExtended(**standardized_doc))
+            else:
+                # 使用普通查询（基础信息字段排序）
+                cursor = db[self.basic_info_collection].find(
+                    query,
+                    {"_id": 0}
+                ).sort(sort_field, sort_direction).skip(skip).limit(page_size)
 
-            docs = await cursor.to_list(length=page_size)
+                docs = await cursor.to_list(length=page_size)
 
-            # 数据标准化处理
-            result = []
-            for doc in docs:
-                standardized_doc = self._standardize_basic_info(doc)
-                result.append(StockBasicInfoExtended(**standardized_doc))
+                # 数据标准化处理
+                result = []
+                for doc in docs:
+                    standardized_doc = self._standardize_basic_info(doc)
+                    
+                    # 获取对应的行情数据
+                    symbol = standardized_doc.get('symbol')
+                    if symbol:
+                        market_quote = await db[self.market_quotes_collection].find_one(
+                            {"$or": [{"symbol": symbol}, {"code": symbol}]},
+                            {"_id": 0}
+                        )
+                        if market_quote:
+                            # 将行情数据添加到基础信息中
+                            standardized_doc['close'] = market_quote.get('close')
+                            standardized_doc['pct_chg'] = market_quote.get('pct_chg')
+                    
+                    result.append(StockBasicInfoExtended(**standardized_doc))
 
-            return result
+            # 计算总数
+            total = await db[self.basic_info_collection].count_documents(query)
+            
+            return result, total
             
         except Exception as e:
             logger.error(f"获取股票列表失败: {e}")
-            return []
+            return [], 0
     
     async def update_stock_basic_info(
         self,
