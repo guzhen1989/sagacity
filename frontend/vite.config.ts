@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 import AutoImport from 'unplugin-auto-import/vite'
@@ -6,7 +6,18 @@ import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // 加载环境变量
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiTarget = env.VITE_API_TARGET || 'http://localhost:8000'
+  const port = env.VITE_PORT ? parseInt(env.VITE_PORT, 10) : 3000
+
+  console.log('🔧 Vite配置加载:')
+  console.log(`   - 前端端口: ${port}`)
+  console.log(`   - 后端代理: ${apiTarget}`)
+  console.log(`   - 运行模式: ${mode}`)
+
+  return {
   plugins: [
     vue(),
     AutoImport({
@@ -41,7 +52,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 3000,
+    port: port,
     hmr: {
       overlay: false
     },
@@ -51,10 +62,21 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
-        ws: true  // 🔥 启用 WebSocket 代理支持
+        ws: true,  // 🔥 启用 WebSocket 代理支持
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('🔴 代理错误:', err.message)
+          })
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log(`🚀 代理请求: ${req.method} ${req.url} -> ${apiTarget}${req.url}`)
+          })
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log(`✅代理响应: ${req.url} - ${proxyRes.statusCode}`)
+          })
+        }
       }
     }
   },
@@ -78,4 +100,4 @@ export default defineConfig({
       }
     }
   }
-})
+}})
