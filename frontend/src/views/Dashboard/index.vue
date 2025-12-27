@@ -235,24 +235,24 @@
               <div class="account-section-title">🇨🇳 A股账户</div>
               <div class="account-item">
                 <div class="account-label">现金</div>
-                <div class="account-value">¥{{ formatMoney(paperAccount.cash?.CNY || paperAccount.cash) }}</div>
+                <div class="account-value">¥{{ formatMoney((typeof paperAccount.cash === 'object' && paperAccount.cash) ? paperAccount.cash.CNY : paperAccount.cash) }}</div>
               </div>
               <div class="account-item">
                 <div class="account-label">持仓市值</div>
-                <div class="account-value">¥{{ formatMoney(paperAccount.positions_value?.CNY || paperAccount.positions_value) }}</div>
+                <div class="account-value">¥{{ formatMoney((typeof paperAccount.positions_value === 'object' && paperAccount.positions_value) ? paperAccount.positions_value.CNY : paperAccount.positions_value) }}</div>
               </div>
               <div class="account-item">
                 <div class="account-label">总资产</div>
-                <div class="account-value primary">¥{{ formatMoney(paperAccount.equity?.CNY || paperAccount.equity) }}</div>
+                <div class="account-value primary">¥{{ formatMoney((typeof paperAccount.equity === 'object' && paperAccount.equity) ? paperAccount.equity.CNY : paperAccount.equity) }}</div>
               </div>
             </div>
 
             <!-- 港股账户 -->
-            <div class="account-section" v-if="paperAccount.cash?.HKD !== undefined">
+            <div class="account-section" v-if="typeof paperAccount.cash === 'object' && paperAccount.cash && paperAccount.cash.HKD !== undefined">
               <div class="account-section-title">🇭🇰 港股账户</div>
               <div class="account-item">
                 <div class="account-label">现金</div>
-                <div class="account-value">HK${{ formatMoney(paperAccount.cash.HKD) }}</div>
+                <div class="account-value">HK${{ formatMoney((typeof paperAccount.cash === 'object' && paperAccount.cash) ? paperAccount.cash.HKD : 0) }}</div>
               </div>
               <div class="account-item">
                 <div class="account-label">持仓市值</div>
@@ -260,16 +260,16 @@
               </div>
               <div class="account-item">
                 <div class="account-label">总资产</div>
-                <div class="account-value primary">HK${{ formatMoney(paperAccount.equity?.HKD || 0) }}</div>
+                <div class="account-value primary">HK${{ formatMoney((typeof paperAccount.equity === 'object' && paperAccount.equity) ? paperAccount.equity.HKD : 0) }}</div>
               </div>
             </div>
 
             <!-- 美股账户 -->
-            <div class="account-section" v-if="paperAccount.cash?.USD !== undefined">
+            <div class="account-section" v-if="typeof paperAccount.cash === 'object' && paperAccount.cash && paperAccount.cash.USD !== undefined">
               <div class="account-section-title">🇺🇸 美股账户</div>
               <div class="account-item">
                 <div class="account-label">现金</div>
-                <div class="account-value">${{ formatMoney(paperAccount.cash.USD) }}</div>
+                <div class="account-value">${{ formatMoney((typeof paperAccount.cash === 'object' && paperAccount.cash) ? paperAccount.cash.USD : 0) }}</div>
               </div>
               <div class="account-item">
                 <div class="account-label">持仓市值</div>
@@ -277,7 +277,7 @@
               </div>
               <div class="account-item">
                 <div class="account-label">总资产</div>
-                <div class="account-value primary">${{ formatMoney(paperAccount.equity?.USD || 0) }}</div>
+                <div class="account-value primary">${{ formatMoney((typeof paperAccount.equity === 'object' && paperAccount.equity) ? paperAccount.equity.USD : 0) }}</div>
               </div>
             </div>
           </div>
@@ -570,8 +570,20 @@ const goToPaperTrading = () => {
 }
 
 // 格式化金额
-const formatMoney = (value: number) => {
-  return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+const formatMoney = (value: number | string | undefined | null) => {
+  if (value === null || value === undefined || value === '') {
+    return '0.00'
+  }
+  
+  // 如果是字符串，尝试转换为数字
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  
+  // 检查是否为有效数字
+  if (isNaN(numValue)) {
+    return '0.00'
+  }
+  
+  return numValue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 // 获取盈亏样式类

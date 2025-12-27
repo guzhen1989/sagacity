@@ -2111,7 +2111,13 @@ const checkModelSuitability = async () => {
         5: '全面分析，专业投资决策'
       }
 
-      const message = `${depthDescriptions[analysisForm.researchDepth] || '标准分析'}\n\n推荐模型配置：\n• 快速模型：${quickDisplayName}\n• 深度模型：${deepDisplayName}\n\n${reason}`
+      const message = `${depthDescriptions[analysisForm.researchDepth] || '标准分析'}
+
+推荐模型配置：
+• 快速模型：${quickDisplayName}
+• 深度模型：${deepDisplayName}
+
+${reason}`
 
       modelRecommendation.value = {
         title: '💡 模型推荐',
@@ -2223,12 +2229,14 @@ onMounted(async () => {
 
   // 接收一次路由参数（从筛选页带入）- 路由参数优先级最高
   const q = route.query as any
-  const hasNewStock = !!q?.stock
+  // 优先级：stock > stock_code
+  const stockParam = q?.stock || q?.stock_code
+  const hasNewStock = !!stockParam
   if (hasNewStock) {
-    analysisForm.stockCode = String(q.stock)
+    analysisForm.stockCode = String(stockParam)
     // 🔥 关键修复：如果有新的股票代码，清除旧任务缓存
     clearTaskCache()
-    console.log('🔄 检测到新股票代码，已清除旧任务缓存:', q.stock)
+    console.log('🔄 检测到新股票代码，已清除旧任务缓存:', stockParam)
 
     // 🆕 自动识别市场类型（如果URL中没有明确指定market参数）
     if (!q?.market) {

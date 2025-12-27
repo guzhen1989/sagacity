@@ -16,7 +16,7 @@
               {{ report.stock_name || report.stock_symbol }} 分析报告
             </h1>
             <div class="report-meta">
-              <el-tag type="primary">{{ report.stock_symbol }}</el-tag>
+              <el-tag type="primary" style="cursor: pointer;" @click="viewStockDetail(report)">{{ report.stock_symbol }}</el-tag>
               <el-tag v-if="report.stock_name && report.stock_name !== report.stock_symbol" type="info">{{ report.stock_name }}</el-tag>
               <el-tag type="success">{{ getStatusText(report.status) }}</el-tag>
               <span class="meta-item">
@@ -721,6 +721,19 @@ const applyToTrading = async () => {
       ElMessage.error(error.message || '操作失败')
     }
   }
+}
+
+// 查看股票详情
+const viewStockDetail = (report: any) => {
+  const stockCode = report.stock_symbol || report.stock_code
+  if (!stockCode) {
+    ElMessage.warning('股票代码不存在')
+    return
+  }
+  router.push({
+    name: 'StockDetail',
+    params: { code: stockCode }
+  })
 }
 
 // 返回列表

@@ -86,7 +86,13 @@
       <el-table :data="filteredList" v-loading="loading" style="width: 100%" @selection-change="onSelectionChange">
         <el-table-column type="selection" width="50" />
         <el-table-column prop="task_id" label="任务ID" width="220" />
-        <el-table-column prop="stock_code" label="股票代码" width="120" />
+        <el-table-column label="股票代码" width="120">
+                  <template #default="{ row }">
+                    <el-link type="primary" @click="viewStockDetail(row)" :underline="false">
+                      {{ row.stock_code }}
+                    </el-link>
+                  </template>
+                </el-table-column>
         <el-table-column prop="stock_name" label="股票名称" width="150" />
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
@@ -406,6 +412,19 @@ const showErrorDetail = async (row: any) => {
       ElMessage.error(e?.message || '获取错误详情失败')
     }
   }
+}
+
+// 查看股票详情
+const viewStockDetail = (row: any) => {
+  const stockCode = row.stock_code || row.stock_symbol
+  if (!stockCode) {
+    ElMessage.warning('股票代码不存在')
+    return
+  }
+  router.push({
+    name: 'StockDetail',
+    params: { code: stockCode }
+  })
 }
 
 // 标记任务为失败

@@ -80,7 +80,9 @@
                 {{ row.title }}
               </el-link>
               <div class="report-subtitle">
-                {{ row.stock_code }} - {{ row.stock_name }}
+                <el-link type="primary" @click="viewStockDetail(row)" :underline="false">
+                  {{ row.stock_code }}
+                </el-link> - {{ row.stock_name }}
               </div>
             </div>
           </template>
@@ -205,7 +207,7 @@ const loading = ref(false)
 const searchKeyword = ref('')
 const marketFilter = ref('')
 const dateRange = ref<[string, string] | null>(null)
-const selectedReports = ref([])
+const selectedReports = ref<any[]>([])
 const currentPage = ref(1)
 const pageSize = ref(20)
 const totalReports = ref(0)
@@ -288,6 +290,18 @@ const handleSelectionChange = (selection: any[]) => {
 const viewReport = (report: any) => {
   // 跳转到报告详情页面
   router.push(`/reports/view/${report.id}`)
+}
+
+const viewStockDetail = (report: any) => {
+  const stockCode = report.stock_code || report.symbol
+  if (!stockCode) {
+    ElMessage.warning('股票代码不存在')
+    return
+  }
+  router.push({
+    name: 'StockDetail',
+    params: { code: stockCode }
+  })
 }
 
 const downloadReport = async (report: any, format: string = 'markdown') => {
@@ -397,7 +411,7 @@ const deleteReport = async (report: any) => {
     } else {
       throw new Error(result.message || '删除失败')
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error.message !== 'cancel') {
       console.error('删除报告失败:', error)
       ElMessage.error('删除报告失败')
@@ -413,13 +427,13 @@ const refreshReports = () => {
   fetchReports()
 }
 
-const getTypeColor = (type: string) => {
+const getTypeColor = (type: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' | undefined => {
   const colorMap: Record<string, string> = {
     single: 'primary',
     batch: 'success',
     portfolio: 'warning'
   }
-  return colorMap[type] || 'info'
+  return (colorMap[type] || 'info') as 'primary' | 'success' | 'warning' | 'info' | 'danger'
 }
 
 const getTypeText = (type: string) => {
@@ -431,13 +445,13 @@ const getTypeText = (type: string) => {
   return textMap[type] || type
 }
 
-const getStatusType = (status: string) => {
+const getStatusType = (status: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' | undefined => {
   const statusMap: Record<string, string> = {
     completed: 'success',
     processing: 'warning',
     failed: 'danger'
   }
-  return statusMap[status] || 'info'
+  return (statusMap[status] || 'info') as 'primary' | 'success' | 'warning' | 'info' | 'danger'
 }
 
 const getStatusText = (status: string) => {
